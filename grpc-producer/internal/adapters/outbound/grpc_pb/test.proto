@@ -1,0 +1,10 @@
+syntax = "proto3";
+option go_package = "github.com/KKogaa/grpc-producer/internal/adapters/outbound/grpc_pb";
+
+package grpc_pb;
+
+message Test {
+  string name = 1;
+  int32 age = 2;
+}
+

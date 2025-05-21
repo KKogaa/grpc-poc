@@ -1,0 +1,34 @@
+syntax = "proto3";
+option go_package = "github.com/KKogaa/grpc-producer/internal/adapters/outbound/grpc_pb";
+
+package grpc_pb;
+
+service InventoryService {
+  rpc GetInventory(GetInventoryRequest) returns (GetInventoryResponse);
+  rpc UseInventory(UseInventoryRequest) returns (UseInventoryResponse);
+}
+
+message GetInventoryRequest {
+  string id = 1;
+  string stock_id = 2;
+  int32 amount = 3;
+}
+
+message GetInventoryResponse {
+  string id = 1;
+  string stock_id = 2;
+  int32 amount = 3;
+}
+
+message UseInventoryRequest {
+  string id = 1;
+  string stock_id = 2;
+  int32 amount = 3;
+}
+
+message UseInventoryResponse {
+  string id = 1;
+  string stock_id = 2;
+  int32 amount = 3;
+}
+
