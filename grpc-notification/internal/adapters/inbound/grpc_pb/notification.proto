@@ -20,4 +20,3 @@ message NotificationAcknowledgment {
   string notification_id = 2;
   string status = 3;
 }
-
