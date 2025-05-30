@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/KKogaa/grpc-transaction/config"
 	"github.com/KKogaa/grpc-transaction/internal/adapters/inbound/grpc_pb"
@@ -21,35 +26,77 @@ func main() {
 
 	config := config.LoadConfig()
 
-	db, err := sqlx.Connect("postgres", config.DatabaseUrl)
-	if err != nil {
-		log.Fatal("failed to connect to database:", err)
-	}
+	db := setupDatabase(config)
 	defer db.Close()
 
-	grpcServer := grpc.NewServer()
+	transactionHandler := setupTransactionHandler(db, config)
 
-	transactionRepository := repositories.NewTransactionRepository(db)
-	noticationClient, err := clients.NewNotificationClient(config.NotificationServiceUrl)
+	grpcServer := setupGRPCServer(transactionHandler)
+
+	startServer(grpcServer, config.Port)
+
+}
+
+func setupDatabase(config *config.Config) *sqlx.DB {
+	db, err := sqlx.Connect("postgres", config.DatabaseUrl)
+	if err != nil {
+		log.Fatalf("Database connection failed: %v", err)
+	}
+	return db
+}
+
+func setupTransactionHandler(db *sqlx.DB, config *config.Config) *handlers.TransactionHandler {
+	notificationClient, err := clients.NewNotificationClient(config.NotificationServiceUrl)
 	if err != nil {
 		log.Fatalf("failed to create notification client: %v", err)
 	}
-	transactionService := services.NewTransactionService(transactionRepository, noticationClient)
-	transactionHandler := handlers.NewTransactionHandler(transactionService)
 
-	grpc_pb.RegisterTransactionServiceServer(grpcServer,
-		transactionHandler)
-	reflection.Register(grpcServer)
+	transactionRepo := repositories.NewTransactionRepository(db)
+	transactionService := services.NewTransactionService(transactionRepo, notificationClient)
+	return handlers.NewTransactionHandler(transactionService)
+}
 
-	listen, err := net.Listen("tcp", fmt.Sprintf(":%s", config.Port))
+func setupGRPCServer(handler *handlers.TransactionHandler) *grpc.Server {
+	server := grpc.NewServer()
+	grpc_pb.RegisterTransactionServiceServer(server, handler)
+	reflection.Register(server)
+	return server
+}
+
+func startServer(server *grpc.Server, port string) {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("failed to listen on port %s: %v", port, err)
+		return
 	}
 
-	log.Printf("gRPC server is listening on port %s", config.Port)
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-	if err := grpcServer.Serve(listen); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+	go func() {
+		log.Printf("gRPC server is listening on port %s", port)
+		if err := server.Serve(listener); err != nil {
+			log.Printf("failed to serve: %v", err)
+		}
+	}()
+
+	<-stop
+	log.Println("Shutting down gRPC server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Println("gRPC server stopped gracefully")
+	case <-ctx.Done():
+		log.Println("Graceful shutdown timeout, forcing stop...")
+		server.Stop()
 	}
-
 }
