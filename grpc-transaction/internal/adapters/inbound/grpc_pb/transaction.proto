@@ -1,0 +1,38 @@
+syntax = "proto3";
+option go_package = "github.com/KKogaa/grpc-transaction/internal/adapters/inbound/grpc_pb";
+
+package grpc_pb;
+
+
+service TransactionService {
+  rpc CreateTransaction (CreateTransactionRequest) returns (CreateTransactionResponse);
+  rpc UpdateTransactionStatus (UpdateTransactionStatusRequest) returns (UpdateTransactionStatusResponse);
+}
+
+
+message CreateTransactionRequest {
+  float  amount = 1;
+  string description = 2;
+}
+
+
+message CreateTransactionResponse {
+  string id = 1;
+  float  amount = 2;
+  string description = 3;
+  string status = 4;
+}
+
+message UpdateTransactionStatusRequest {
+  string id = 1;
+  string status = 2;
+}
+
+message UpdateTransactionStatusResponse {
+  string id = 1;
+  float  amount = 2;
+  string description = 3;
+  string status = 4;
+}
+
+
