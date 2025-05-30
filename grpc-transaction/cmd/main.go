@@ -6,6 +6,7 @@ import (
 
 	"github.com/KKogaa/grpc-transaction/internal/adapters/inbound/grpc_pb"
 	"github.com/KKogaa/grpc-transaction/internal/adapters/inbound/handlers"
+	"github.com/KKogaa/grpc-transaction/internal/adapters/outbound/clients"
 	"github.com/KKogaa/grpc-transaction/internal/adapters/outbound/repositories"
 	"github.com/KKogaa/grpc-transaction/internal/core/services"
 	"github.com/jmoiron/sqlx"
@@ -20,11 +21,16 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect to database:", err)
 	}
+	defer db.Close()
 
 	grpcServer := grpc.NewServer()
 
 	transactionRepository := repositories.NewTransactionRepository(db)
-	transactionService := services.NewTransactionService(transactionRepository)
+	noticationClient, err := clients.NewNotificationClient()
+	if err != nil {
+		log.Fatalf("failed to create notification client: %v", err)
+	}
+	transactionService := services.NewTransactionService(transactionRepository, noticationClient)
 	transactionHandler := handlers.NewTransactionHandler(transactionService)
 
 	grpc_pb.RegisterTransactionServiceServer(grpcServer,

@@ -35,4 +35,3 @@ message UpdateTransactionStatusResponse {
   string status = 4;
 }
 
-

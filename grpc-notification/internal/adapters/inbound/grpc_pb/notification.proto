@@ -1,0 +1,23 @@
+syntax = "proto3";
+option go_package = "github.com/KKogaa/grpc-notification/internal/adapters/outbound/grpc_pb";
+
+package grpc_pb;
+
+service NotificationService {
+  rpc SendNotification(TransactionNotification) returns (NotificationAcknowledgment);
+}
+
+message TransactionNotification {
+  string id = 1;
+  float  amount = 2;
+  string description = 3;
+  string status = 4;
+}
+
+message NotificationAcknowledgment {
+  string id = 1;
+  string notification_id = 2;
+  string status = 3;
+}
+
+

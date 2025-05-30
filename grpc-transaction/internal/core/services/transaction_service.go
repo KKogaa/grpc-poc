@@ -8,11 +8,14 @@ import (
 
 type TransactionService struct {
 	transactionRepository ports.TransactionPort
+	notificationClient    ports.NotificationPort
 }
 
-func NewTransactionService(transactionRepository ports.TransactionPort) *TransactionService {
+func NewTransactionService(transactionRepository ports.TransactionPort,
+	notificationClient ports.NotificationPort) *TransactionService {
 	return &TransactionService{
 		transactionRepository: transactionRepository,
+		notificationClient:    notificationClient,
 	}
 }
 
@@ -48,6 +51,10 @@ func (t *TransactionService) UpdateTransactionStatus(id string,
 
 	_, err = t.transactionRepository.UpdateTransaction(transaction)
 	if err != nil {
+		return entities.Transaction{}, err
+	}
+
+	if err := t.notificationClient.SendNotification(transaction); err != nil {
 		return entities.Transaction{}, err
 	}
 
