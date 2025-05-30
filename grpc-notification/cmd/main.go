@@ -1,9 +1,16 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/KKogaa/grpc-notification/config"
 	"github.com/KKogaa/grpc-notification/internal/adapters/inbound/grpc_pb"
 	"github.com/KKogaa/grpc-notification/internal/adapters/inbound/handlers"
 	"github.com/KKogaa/grpc-notification/internal/adapters/outbound/clients"
@@ -17,33 +24,79 @@ import (
 
 func main() {
 
-	db, err := sqlx.Connect("postgres", "postgresql://retool:npg_ti4HDmeYko6X@ep-blue-tree-a6w8ipns.us-west-2.retooldb.com/retool?sslmode=require")
-	if err != nil {
-		log.Fatal("failed to connect to database:", err)
-	}
+	config := config.LoadConfig()
+
+	db := setupDatabase(config)
 	defer db.Close()
 
-	grpcServer := grpc.NewServer()
+	notificationHandler := setupNotificationHandler(db, config)
 
-	emailClient := clients.NewEmailClient("https://api.retool.com/v1/workflows/87f81514-e028-4bbd-9966-00cf5cb4dd57/startTrigger",
-		"retool_wk_17b6a986704248b4a171513a0d1085b1")
+	grpcServer := setupGRPCServer(notificationHandler)
+
+	startServer(grpcServer, config.Port)
+
+}
+
+func setupGRPCServer(handler *handlers.NotificationHandler) *grpc.Server {
+	server := grpc.NewServer()
+	grpc_pb.RegisterNotificationServiceServer(server, handler)
+	reflection.Register(server)
+	return server
+}
+
+func setupNotificationHandler(db *sqlx.DB,
+	config *config.Config) *handlers.NotificationHandler {
+	emailClient := clients.NewEmailClient(config.EmailProviderUrl,
+		config.EmailProviderToken)
 	notificationRepository := repositories.NewNotificationRepository(db)
-	notificationService := services.NewNotificationService(notificationRepository, emailClient)
+	notificationService := services.NewNotificationService(notificationRepository,
+		emailClient)
 	notificationHandler := handlers.NewNotificationHandler(notificationService)
+	return notificationHandler
+}
 
-	grpc_pb.RegisterNotificationServiceServer(grpcServer,
-		notificationHandler)
-	reflection.Register(grpcServer)
-
-	listen, err := net.Listen("tcp", ":8081")
+func setupDatabase(config *config.Config) *sqlx.DB {
+	db, err := sqlx.Connect("postgres", config.DatabaseUrl)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("Database connection failed: %v", err)
+	}
+	return db
+}
+
+func startServer(server *grpc.Server, port string) {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
+	if err != nil {
+		log.Fatalf("failed to listen on port %s: %v", port, err)
+		return
 	}
 
-	log.Println("gRPC server is running on port :8081")
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-	if err := grpcServer.Serve(listen); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+	go func() {
+		log.Printf("gRPC server is listening on port %s", port)
+		if err := server.Serve(listener); err != nil {
+			log.Printf("failed to serve: %v", err)
+		}
+	}()
+
+	<-stop
+	log.Println("Shutting down gRPC server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		server.GracefulStop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Println("gRPC server stopped gracefully")
+	case <-ctx.Done():
+		log.Println("Graceful shutdown timeout, forcing stop...")
+		server.Stop()
 	}
-
 }
