@@ -13,8 +13,7 @@ type NotificationClient struct {
 	conn   *grpc.ClientConn
 }
 
-func NewNotificationClient() (*NotificationClient, error) {
-	address := "localhost:8081"
+func NewNotificationClient(address string) (*NotificationClient, error) {
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err

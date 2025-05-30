@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 
+	"github.com/KKogaa/grpc-transaction/config"
 	"github.com/KKogaa/grpc-transaction/internal/adapters/inbound/grpc_pb"
 	"github.com/KKogaa/grpc-transaction/internal/adapters/inbound/handlers"
 	"github.com/KKogaa/grpc-transaction/internal/adapters/outbound/clients"
@@ -17,7 +19,9 @@ import (
 
 func main() {
 
-	db, err := sqlx.Connect("postgres", "postgresql://retool:npg_ti4HDmeYko6X@ep-blue-tree-a6w8ipns.us-west-2.retooldb.com/retool?sslmode=require")
+	config := config.LoadConfig()
+
+	db, err := sqlx.Connect("postgres", config.DatabaseUrl)
 	if err != nil {
 		log.Fatal("failed to connect to database:", err)
 	}
@@ -26,7 +30,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	transactionRepository := repositories.NewTransactionRepository(db)
-	noticationClient, err := clients.NewNotificationClient()
+	noticationClient, err := clients.NewNotificationClient(config.NotificationServiceUrl)
 	if err != nil {
 		log.Fatalf("failed to create notification client: %v", err)
 	}
@@ -37,12 +41,12 @@ func main() {
 		transactionHandler)
 	reflection.Register(grpcServer)
 
-	listen, err := net.Listen("tcp", ":8080")
+	listen, err := net.Listen("tcp", fmt.Sprintf(":%s", config.Port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	log.Println("gRPC server is running on port :8080")
+	log.Printf("gRPC server is listening on port %s", config.Port)
 
 	if err := grpcServer.Serve(listen); err != nil {
 		log.Fatalf("failed to serve: %v", err)
