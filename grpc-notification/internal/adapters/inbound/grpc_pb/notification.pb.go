@@ -162,9 +162,10 @@ const file_internal_adapters_inbound_grpc_pb_notification_proto_rawDesc = "" +
 	"\x1aNotificationAcknowledgment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\x0fnotification_id\x18\x02 \x01(\tR\x0enotificationId\x12\x16\n" +
-	"\x06status\x18\x03 \x01(\tR\x06status2p\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status2\xd2\x01\n" +
 	"\x13NotificationService\x12Y\n" +
-	"\x10SendNotification\x12 .grpc_pb.TransactionNotification\x1a#.grpc_pb.NotificationAcknowledgmentBHZFgithub.com/KKogaa/grpc-notification/internal/adapters/outbound/grpc_pbb\x06proto3"
+	"\x10SendNotification\x12 .grpc_pb.TransactionNotification\x1a#.grpc_pb.NotificationAcknowledgment\x12`\n" +
+	"\x13StreamNotifications\x12 .grpc_pb.TransactionNotification\x1a#.grpc_pb.NotificationAcknowledgment(\x010\x01BHZFgithub.com/KKogaa/grpc-notification/internal/adapters/outbound/grpc_pbb\x06proto3"
 
 var (
 	file_internal_adapters_inbound_grpc_pb_notification_proto_rawDescOnce sync.Once
@@ -185,9 +186,11 @@ var file_internal_adapters_inbound_grpc_pb_notification_proto_goTypes = []any{
 }
 var file_internal_adapters_inbound_grpc_pb_notification_proto_depIdxs = []int32{
 	0, // 0: grpc_pb.NotificationService.SendNotification:input_type -> grpc_pb.TransactionNotification
-	1, // 1: grpc_pb.NotificationService.SendNotification:output_type -> grpc_pb.NotificationAcknowledgment
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	0, // 1: grpc_pb.NotificationService.StreamNotifications:input_type -> grpc_pb.TransactionNotification
+	1, // 2: grpc_pb.NotificationService.SendNotification:output_type -> grpc_pb.NotificationAcknowledgment
+	1, // 3: grpc_pb.NotificationService.StreamNotifications:output_type -> grpc_pb.NotificationAcknowledgment
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name

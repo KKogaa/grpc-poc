@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NotificationService_SendNotification_FullMethodName = "/grpc_pb.NotificationService/SendNotification"
+	NotificationService_SendNotification_FullMethodName    = "/grpc_pb.NotificationService/SendNotification"
+	NotificationService_StreamNotifications_FullMethodName = "/grpc_pb.NotificationService/StreamNotifications"
 )
 
 // NotificationServiceClient is the client API for NotificationService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NotificationServiceClient interface {
 	SendNotification(ctx context.Context, in *TransactionNotification, opts ...grpc.CallOption) (*NotificationAcknowledgment, error)
+	StreamNotifications(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[TransactionNotification, NotificationAcknowledgment], error)
 }
 
 type notificationServiceClient struct {
@@ -47,11 +49,25 @@ func (c *notificationServiceClient) SendNotification(ctx context.Context, in *Tr
 	return out, nil
 }
 
+func (c *notificationServiceClient) StreamNotifications(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[TransactionNotification, NotificationAcknowledgment], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &NotificationService_ServiceDesc.Streams[0], NotificationService_StreamNotifications_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[TransactionNotification, NotificationAcknowledgment]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NotificationService_StreamNotificationsClient = grpc.BidiStreamingClient[TransactionNotification, NotificationAcknowledgment]
+
 // NotificationServiceServer is the server API for NotificationService service.
 // All implementations must embed UnimplementedNotificationServiceServer
 // for forward compatibility.
 type NotificationServiceServer interface {
 	SendNotification(context.Context, *TransactionNotification) (*NotificationAcknowledgment, error)
+	StreamNotifications(grpc.BidiStreamingServer[TransactionNotification, NotificationAcknowledgment]) error
 	mustEmbedUnimplementedNotificationServiceServer()
 }
 
@@ -64,6 +80,9 @@ type UnimplementedNotificationServiceServer struct{}
 
 func (UnimplementedNotificationServiceServer) SendNotification(context.Context, *TransactionNotification) (*NotificationAcknowledgment, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendNotification not implemented")
+}
+func (UnimplementedNotificationServiceServer) StreamNotifications(grpc.BidiStreamingServer[TransactionNotification, NotificationAcknowledgment]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamNotifications not implemented")
 }
 func (UnimplementedNotificationServiceServer) mustEmbedUnimplementedNotificationServiceServer() {}
 func (UnimplementedNotificationServiceServer) testEmbeddedByValue()                             {}
@@ -104,6 +123,13 @@ func _NotificationService_SendNotification_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NotificationService_StreamNotifications_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(NotificationServiceServer).StreamNotifications(&grpc.GenericServerStream[TransactionNotification, NotificationAcknowledgment]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type NotificationService_StreamNotificationsServer = grpc.BidiStreamingServer[TransactionNotification, NotificationAcknowledgment]
+
 // NotificationService_ServiceDesc is the grpc.ServiceDesc for NotificationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -116,6 +142,13 @@ var NotificationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _NotificationService_SendNotification_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamNotifications",
+			Handler:       _NotificationService_StreamNotifications_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "internal/adapters/inbound/grpc_pb/notification.proto",
 }
